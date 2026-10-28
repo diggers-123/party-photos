@@ -82,22 +82,15 @@ a { color: var(--ice); }
 
 /* ---------- mirror ball ---------- */
 
+/* The ball itself is a drawing of hundreds of mirror tiles (assets/disco-ball.svg, with twinkling glints). */
 .disco {
-  --size: 120px;
+  --size: 136px;
   position: relative;
   width: var(--size);
   height: var(--size);
   margin: 0 auto;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95) 0 3%, rgba(255, 255, 255, 0.35) 9%, transparent 22%),
-    repeating-linear-gradient(0deg, rgba(5, 12, 18, 0.55) 0 1px, transparent 1px calc(var(--size) / 13)),
-    repeating-linear-gradient(90deg, rgba(5, 12, 18, 0.55) 0 1px, transparent 1px calc(var(--size) / 13)),
-    conic-gradient(from 15deg, #d8e9f2, #5d8aa4, #eef6fa, #34596f, #c2dbe8, #ffad9d, #e3eef4, #476f88, #9fc3d6, #d8e9f2);
-  box-shadow:
-    inset -14px -16px 34px rgba(0, 0, 0, 0.6),
-    inset 8px 8px 22px rgba(255, 255, 255, 0.28),
-    0 0 50px rgba(169, 216, 236, 0.3);
+  background: url('/assets/disco-ball.svg') center / contain no-repeat;
+  filter: drop-shadow(0 0 22px rgba(169, 216, 236, 0.32));
   animation: sway 6s ease-in-out infinite;
   transform-origin: 50% -60px;
 }
@@ -112,24 +105,9 @@ a { color: var(--ice); }
   background: linear-gradient(transparent, rgba(255, 255, 255, 0.5));
 }
 
-.disco::after {
-  content: '';
-  position: absolute;
-  top: 12%;
-  right: 8%;
-  width: 34%;
-  height: 34%;
-  background: radial-gradient(circle, #fff 0 6%, transparent 14%),
-    linear-gradient(90deg, transparent 47%, rgba(255, 255, 255, 0.9) 50%, transparent 53%),
-    linear-gradient(0deg, transparent 47%, rgba(255, 255, 255, 0.9) 50%, transparent 53%);
-  border-radius: 50%;
-  animation: twinkle 2.6s ease-in-out infinite;
-}
-
 .disco.spin { animation: sway 1.6s ease-in-out infinite; }
 
 @keyframes sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
-@keyframes twinkle { 0%, 100% { opacity: 0.2; transform: scale(0.7) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(20deg); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
