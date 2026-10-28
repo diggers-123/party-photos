@@ -1,0 +1,6 @@
+{
+  "name": "party-photos",
+  "private": true,
+  "type": "module",
+  "description": "Private QR-code party photo album (static site + Vercel functions + Supabase)"
+}

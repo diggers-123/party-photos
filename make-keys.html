@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Make admin password</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; padding: 32px 16px; font: 16px/1.5 system-ui, sans-serif; background: #0c1a25; color: #f4f8fb; }
+    main { max-width: 640px; margin: 0 auto; }
+    h1 { font-weight: 600; margin: 0 0 8px; }
+    p { color: #c9d8e1; }
+    .box { margin: 20px 0; padding: 16px; border-radius: 14px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); }
+    .label { font-weight: 600; margin-bottom: 6px; }
+    code { display: block; padding: 10px 12px; border-radius: 10px; background: #05090e; font: 15px ui-monospace, Consolas, monospace; word-break: break-all; user-select: all; }
+    button { margin-top: 10px; padding: 10px 16px; border: 0; border-radius: 999px; font: 600 15px system-ui; cursor: pointer; background: #fff; color: #0a1721; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>🔑 Make your admin password</h1>
+    <p>This page runs only on your computer and nothing is sent anywhere. Copy the value into Vercel (Settings → Environment Variables) as <b>ADMIN_PASSWORD</b>, and save it in your password manager. Reload the page for a new one.</p>
+
+    <div class="box">
+      <div class="label">ADMIN_PASSWORD <span style="font-weight:400">(only for you, to open the host dashboard)</span></div>
+      <code id="admin-password"></code>
+      <button type="button" id="copy">Copy</button>
+    </div>
+  </main>
+  <script>
+    function randomString(length, alphabet) {
+      const out = [];
+      const bytes = crypto.getRandomValues(new Uint8Array(length * 2));
+      for (const b of bytes) {
+        if (b < 256 - (256 % alphabet.length)) out.push(alphabet[b % alphabet.length]); // no bias
+        if (out.length === length) break;
+      }
+      return out.length === length ? out.join('') : randomString(length, alphabet);
+    }
+    const password = randomString(20, 'abcdefghjkmnpqrstuvwxyz23456789').match(/.{1,5}/g).join('-');
+    document.getElementById('admin-password').textContent = password;
+    document.getElementById('copy').addEventListener('click', async (e) => {
+      try { await navigator.clipboard.writeText(password); e.target.textContent = 'Copied ✓'; }
+      catch { e.target.textContent = 'Select the text above and press Ctrl+C'; }
+    });
+  </script>
+</body>
+</html>

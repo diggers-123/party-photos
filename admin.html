@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow, noarchive, noimageindex">
+  <meta name="theme-color" content="#05090e">
+  <title>Host dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪩</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bellefair&family=Josefin+Sans:wght@300;400;600&display=swap">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <!-- Login -->
+  <main class="center-screen" id="login-screen">
+    <div class="disco" aria-hidden="true"></div>
+    <div class="stack">
+      <div>
+        <p class="kicker">✦ Hosts only ✦</p>
+        <h1 class="party-title" style="font-size: clamp(2.2rem, 11vw, 3.4rem)">Host dashboard</h1>
+      </div>
+      <form class="card welcome-form" id="login-form">
+        <label class="field">
+          <span>Admin password</span>
+          <input id="password-input" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="btn btn-primary btn-block" id="login-button" type="submit">Log in</button>
+        <p class="status-line error" id="login-error" role="alert"></p>
+      </form>
+    </div>
+  </main>
+
+  <!-- Dashboard -->
+  <div class="admin" id="dashboard" hidden>
+    <header class="admin-head">
+      <div>
+        <h1 data-party="title"></h1>
+        <p>Host dashboard · only you can see this</p>
+      </div>
+      <div class="row-wrap">
+        <a class="btn btn-small" href="/" target="_blank" rel="noopener">Open album</a>
+        <button class="btn btn-small" id="logout" type="button">Log out</button>
+      </div>
+    </header>
+
+    <div class="panels">
+      <section class="card panel">
+        <h2>Photos so far</h2>
+        <div class="stat" id="stat-total">–</div>
+        <p class="small" id="stat-favourites" style="margin:6px 0 0"></p>
+        <p style="margin-top:12px">Guests only see their own uploads plus everyone's ★ favourites. You see everything here.</p>
+        <p>Download everything as .zip files (best on a computer). Big albums are split into parts of 250 photos so your browser doesn't run out of memory.</p>
+        <div class="row-wrap" id="zip-buttons"></div>
+        <p class="status-line" id="zip-status" role="status"></p>
+      </section>
+
+      <section class="card panel">
+        <h2>QR code poster</h2>
+        <p>Print this and put it up at the party. Guests can also share the link with anyone.</p>
+        <code class="secret-link" id="secret-link"></code>
+        <div class="row-wrap">
+          <label class="choice"><input type="radio" name="paper" value="a4" checked> A4</label>
+          <label class="choice"><input type="radio" name="paper" value="a5"> A5</label>
+          <label class="choice"><input type="checkbox" id="ink-saver"> Save ink (white)</label>
+        </div>
+        <div class="poster-preview" id="poster-preview"></div>
+        <div class="row-wrap">
+          <button class="btn btn-primary" id="print-poster" type="button">🖨️ Print poster</button>
+          <button class="btn btn-small" id="copy-link" type="button">Copy link</button>
+        </div>
+        <p class="small" style="margin-top:10px">Tip: in the print window choose "Background graphics: on" and "Margins: none".</p>
+      </section>
+    </div>
+
+    <div class="sticky-bar">
+      <h2>All photos</h2>
+      <div class="row-wrap">
+        <label class="choice"><input type="checkbox" id="only-favourites"> ★ Favourites only</label>
+        <span class="small" id="selected-count"></span>
+        <button class="btn btn-small" id="clear-selection" type="button" hidden>Clear</button>
+        <button class="btn btn-small btn-danger" id="delete-selected" type="button" disabled>Delete selected</button>
+        <button class="icon-btn" id="admin-refresh" type="button" aria-label="Refresh">↻</button>
+      </div>
+    </div>
+    <p class="small" style="margin:8px 0 0">Tap photos to select them. ⤢ opens one full size.</p>
+    <div class="admin-grid" id="admin-grid"></div>
+    <div class="load-more"><button class="btn btn-small" id="admin-more" type="button" hidden>Load more</button></div>
+  </div>
+
+  <!-- Poster template (cloned for preview and print) -->
+  <template id="poster-template">
+    <section class="poster">
+      <div class="disco" aria-hidden="true"></div>
+      <p class="poster-kicker">✦ The party photo album ✦</p>
+      <h1 class="poster-title" data-party="title"></h1>
+      <p class="poster-sub" data-party="subtitle"></p>
+      <div class="poster-qr"></div>
+      <p class="poster-cta">Scan to share your photos</p>
+      <p class="poster-note">Snap away tonight — and add more tomorrow.<br>Star your 5 favourites to show everyone. No app needed.</p>
+      <p class="poster-return">Or open <b class="poster-host"></b><br>and share the link with friends.</p>
+    </section>
+  </template>
+
+  <div id="print-root"></div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="card" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-text">
+      <h3 id="modal-title"></h3>
+      <p id="modal-text"></p>
+      <div class="row">
+        <button class="btn" id="modal-cancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="modal-ok" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+  <script src="/assets/admin.js"></script>
+</body>
+</html>

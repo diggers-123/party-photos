@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow, noarchive, noimageindex">
+  <meta name="theme-color" content="#05090e">
+  <title>Party Photos</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪩</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bellefair&family=Josefin+Sans:wght@300;400;600&display=swap">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <div class="net-banner" id="net-banner" role="status" hidden>No signal — uploads will carry on when you're back online</div>
+
+  <!-- Loading -->
+  <main class="center-screen" data-screen="loading">
+    <div class="disco spin" aria-hidden="true"></div>
+    <p class="spinner-text">Warming up the dance floor…</p>
+  </main>
+
+  <!-- Couldn't reach the server -->
+  <main class="center-screen" data-screen="problem" hidden>
+    <div class="disco" aria-hidden="true"></div>
+    <div class="stack">
+      <h1 class="party-title" style="font-size: clamp(2rem, 10vw, 3rem)">Can't connect</h1>
+      <p class="lead" id="problem-text">No signal right now.</p>
+      <button class="btn btn-primary btn-block" id="problem-retry" type="button">Try again</button>
+    </div>
+  </main>
+
+  <!-- First name -->
+  <main class="center-screen" data-screen="welcome" hidden>
+    <div class="disco" aria-hidden="true"></div>
+    <div class="stack">
+      <div>
+        <p class="kicker">✦ The party album ✦</p>
+        <h1 class="party-title" data-party="title"></h1>
+        <p class="party-sub" data-party="subtitle"></p>
+      </div>
+      <form class="card welcome-form" id="welcome-form" novalidate>
+        <label class="field">
+          <span>What's your first name?</span>
+          <input id="name-input" name="name" type="text" autocomplete="given-name" autocapitalize="words" maxlength="40" placeholder="e.g. Sam" required>
+        </label>
+        <button class="btn btn-primary btn-block" id="welcome-submit" type="submit">Let's go ✨</button>
+        <button class="btn btn-block" id="welcome-cancel" type="button" hidden>Cancel</button>
+        <p class="small" style="margin:0">So everyone knows who took your favourite photos. We'll remember it on this phone.</p>
+      </form>
+    </div>
+  </main>
+
+  <!-- The album -->
+  <div data-screen="album" hidden>
+    <header class="album-header">
+      <p class="mini-title" data-party="title"></p>
+      <button class="name-chip" id="name-chip" type="button" aria-label="Change your name">
+        <span aria-hidden="true">👋</span><b id="name-chip-text"></b><span aria-hidden="true">✎</span>
+      </button>
+    </header>
+
+    <main class="album">
+      <section class="hero">
+        <p class="kicker">✦ Party album ✦</p>
+        <h1 class="party-title" data-party="title"></h1>
+        <p class="party-sub" data-party="subtitle"></p>
+        <button class="btn btn-small share-btn" id="btn-share" type="button"><span aria-hidden="true">🔗</span> Share the album link</button>
+      </section>
+
+      <section class="card upload-card" aria-labelledby="upload-heading">
+        <h2 id="upload-heading">Add your photos</h2>
+        <p class="small">Upload as many as you like, tonight or tomorrow. Only you and the host see them, until you <b>star your 5 favourites</b> to share with everyone.</p>
+        <div class="upload-buttons">
+          <button class="btn btn-primary" id="btn-library" type="button"><span class="icon" aria-hidden="true">🖼️</span>Choose photos</button>
+          <button class="btn" id="btn-camera" type="button"><span class="icon" aria-hidden="true">📷</span>Take a photo</button>
+        </div>
+        <input class="visually-hidden" id="input-library" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true">
+        <input class="visually-hidden" id="input-camera" type="file" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
+
+        <div class="upload-panel" id="upload-panel" hidden aria-live="polite">
+          <div class="upload-status">
+            <p id="upload-text"></p>
+            <div class="upload-actions">
+              <button class="btn btn-small" id="upload-retry" type="button" hidden>Retry</button>
+              <button class="btn btn-small" id="upload-dismiss" type="button" hidden>OK</button>
+            </div>
+          </div>
+          <div class="progress" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100"><span id="upload-bar"></span></div>
+        </div>
+      </section>
+
+      <section class="gallery" aria-label="Photos">
+        <div class="tabs" role="tablist">
+          <button class="tab" id="tab-favourites" role="tab" type="button" data-tab="favourites">★ Favourites <span class="tab-count" id="count-favourites"></span></button>
+          <button class="tab" id="tab-mine" role="tab" type="button" data-tab="mine">My photos <span class="tab-count" id="count-mine"></span></button>
+          <button class="icon-btn" id="btn-refresh" type="button" aria-label="Check for new photos">↻</button>
+        </div>
+        <p class="tab-hint" id="tab-hint"></p>
+        <div class="grid" id="grid" role="tabpanel"></div>
+        <div class="empty" id="gallery-empty" hidden></div>
+        <div class="load-more" id="sentinel"><span id="load-more-text"></span></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Full-screen viewer -->
+  <div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>
+    <div class="viewer-stage" id="viewer-stage">
+      <div class="viewer-track" id="viewer-track">
+        <figure class="slide"><img class="ph" alt=""><img class="full" alt=""></figure>
+        <figure class="slide"><img class="ph" alt=""><img class="full" alt=""></figure>
+        <figure class="slide"><img class="ph" alt=""><img class="full" alt=""></figure>
+      </div>
+    </div>
+    <button class="icon-btn nav prev" id="viewer-prev" type="button" aria-label="Previous photo">‹</button>
+    <button class="icon-btn nav next" id="viewer-next" type="button" aria-label="Next photo">›</button>
+    <div class="viewer-top">
+      <span id="viewer-count"></span>
+      <button class="icon-btn" id="viewer-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="viewer-bar">
+      <div class="who"><strong id="viewer-name"></strong><span id="viewer-time"></span></div>
+      <div class="actions">
+        <button class="btn btn-small star-toggle" id="viewer-star" type="button" hidden></button>
+        <a class="btn btn-small" id="viewer-save" href="#" rel="noopener">Save</a>
+        <button class="btn btn-small btn-danger" id="viewer-delete" type="button" hidden>Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm dialog -->
+  <div class="modal" id="modal" hidden>
+    <div class="card" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-text">
+      <h3 id="modal-title"></h3>
+      <p id="modal-text"></p>
+      <div class="row">
+        <button class="btn" id="modal-cancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="modal-ok" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>
