@@ -98,11 +98,20 @@
           <button class="icon-btn" id="btn-refresh" type="button" aria-label="Check for new photos">↻</button>
         </div>
         <p class="tab-hint" id="tab-hint"></p>
+        <div class="gallery-tools"><button class="btn btn-small" id="btn-select" type="button" hidden>☑︎ Select photos to save</button></div>
         <div class="grid" id="grid" role="tabpanel"></div>
         <div class="empty" id="gallery-empty" hidden></div>
         <div class="load-more" id="sentinel"><span id="load-more-text"></span></div>
       </section>
     </main>
+  </div>
+
+  <!-- Bar shown while picking several favourites to save -->
+  <div class="select-bar" id="select-bar" role="toolbar" aria-label="Save selected photos" hidden>
+    <span class="count" id="select-count" aria-live="polite"></span>
+    <button class="btn btn-small" id="select-all" type="button">All</button>
+    <button class="btn btn-small" id="select-cancel" type="button">Cancel</button>
+    <button class="btn btn-small btn-primary" id="select-save" type="button" disabled>⬇︎ Save</button>
   </div>
 
   <!-- Full-screen viewer -->
