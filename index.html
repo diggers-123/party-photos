@@ -145,5 +145,19 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="/assets/app.js"></script>
+  <script>
+    // Safety net: if the album's code never starts (bad signal, or a file missing on the server),
+    // show a message instead of spinning forever.
+    setTimeout(function () {
+      if (window.albumStarted) return;
+      var loading = document.querySelector('[data-screen="loading"]');
+      var problem = document.querySelector('[data-screen="problem"]');
+      if (!loading || loading.hidden) return;
+      document.getElementById('problem-text').textContent = "The album couldn't load. Check your signal and try again.";
+      document.getElementById('problem-retry').onclick = function () { location.reload(); };
+      loading.hidden = true;
+      problem.hidden = false;
+    }, 15000);
+  </script>
 </body>
 </html>
