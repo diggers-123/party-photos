@@ -76,7 +76,7 @@ function authHeaders(extra = {}) {
 }
 
 function errorFrom(status, data) {
-  if (data.error === 'not_configured') return new ApiError('not_configured', MSG.notConfigured, status);
+  if (data.error === 'not_configured') return new ApiError('not_configured', data.message || MSG.notConfigured, status);
   if (status === 413) return new ApiError('too_big', 'That photo is too large to upload.', status);
   return new ApiError(data.error || 'server_error', data.message || MSG.server, status);
 }
