@@ -31,8 +31,8 @@ export function fail(status, error, message) {
   return json({ error, message }, status);
 }
 
-// Wraps an endpoint so unexpected problems become a tidy JSON error
-// (details go to the Vercel logs, not to guests).
+// Wraps an endpoint so unexpected problems become a tidy JSON error.
+// Full details go to the Vercel logs; set-up problems get a plain-English hint for the host.
 export function endpoint(fn) {
   return async (request) => {
     try {
@@ -40,9 +40,44 @@ export function endpoint(fn) {
     } catch (err) {
       console.error(err);
       if (err instanceof SetupError) return fail(500, 'not_configured', err.message);
+      const hint = setupHint(err);
+      if (hint) return fail(500, 'not_configured', `The album isn't set up correctly. ${hint}`);
       return fail(500, 'server_error', 'Something went wrong on the server. Please try again.');
     }
   };
+}
+
+class SupabaseError extends Error {
+  constructor(status, path, text) {
+    super(`Supabase ${path} failed (${status}): ${text.slice(0, 300)}`);
+    this.status = status;
+    this.path = path;
+    this.text = text;
+  }
+}
+
+// Turns the usual set-up mistakes into a message the host can act on.
+// Only says which setting is wrong, never what the secret values are.
+function setupHint(err) {
+  if (!(err instanceof SupabaseError)) {
+    if (err instanceof TypeError || /fetch failed|ENOTFOUND|getaddrinfo/i.test(String(err?.cause || err))) {
+      return "Host: the server can't reach Supabase. Check SUPABASE_URL in Vercel (it should look like https://abcd1234.supabase.co).";
+    }
+    return null;
+  }
+  const t = err.text || '';
+  if (/<html|<!doctype/i.test(t)) return 'Host: SUPABASE_URL looks wrong. It should look like https://abcd1234.supabase.co with nothing after ".co".';
+  if (err.status === 401 || err.status === 403 || /invalid api key|jwt|unauthori[sz]ed/i.test(t)) {
+    return 'Host: Supabase rejected the key. Check SUPABASE_SECRET_KEY in Vercel is the SECRET key (sb_secret_… or service_role), then redeploy.';
+  }
+  if (/is_favourite/.test(t)) return 'Host: the database is missing the favourites column. Run supabase-setup.sql again in Supabase → SQL Editor.';
+  if (err.path.startsWith('/rest/') && (err.status === 404 || /PGRST205|42P01|could not find the table|does not exist/i.test(t))) {
+    return 'Host: the photos table is missing. Run supabase-setup.sql in Supabase → SQL Editor.';
+  }
+  if (err.path.startsWith('/storage/') && /bucket not found/i.test(t)) {
+    return 'Host: the "photos" storage bucket is missing. Run supabase-setup.sql again, or create a private bucket called photos.';
+  }
+  return `Host: Supabase said "${t.replace(/<[^>]*>/g, '').slice(0, 160)}" (status ${err.status}).`;
 }
 
 /* ---------- access checks ---------- */
@@ -76,9 +111,35 @@ export function deviceIdFrom(request) {
 
 /* ---------- talking to Supabase (with the secret key, server-side only) ---------- */
 
-async function supabase(path, { method = 'GET', headers = {}, body } = {}) {
-  const base = env('SUPABASE_URL').replace(/\/+$/, '');
+function supabaseKey() {
   const key = env('SUPABASE_SECRET_KEY');
+  if (key.startsWith('sb_publishable_')) {
+    throw new SetupError('SUPABASE_SECRET_KEY is the publishable key. Use the SECRET key (sb_secret_…) from Supabase → Project Settings → API Keys, then redeploy.');
+  }
+  if (key.startsWith('eyJ')) {
+    try {
+      const payload = JSON.parse(atob(key.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.role === 'anon') {
+        throw new SetupError('SUPABASE_SECRET_KEY is the "anon" key. Use the "service_role" key (or a sb_secret_… key) instead, then redeploy.');
+      }
+    } catch (err) {
+      if (err instanceof SetupError) throw err;
+    }
+  }
+  return key;
+}
+
+function supabaseUrl() {
+  const url = env('SUPABASE_URL').replace(/\/+$/, '');
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)$/i.test(url)) {
+    throw new SetupError('SUPABASE_URL should look like https://abcd1234.supabase.co, with nothing before "https" or after ".co". Fix it in Vercel, then redeploy.');
+  }
+  return url;
+}
+
+async function supabase(path, { method = 'GET', headers = {}, body } = {}) {
+  const base = supabaseUrl();
+  const key = supabaseKey();
   // New-style keys (sb_secret_…) go in the apikey header only;
   // older "service_role" keys are JWTs (eyJ…) and also go in Authorization.
   const auth = key.startsWith('eyJ') ? { authorization: `Bearer ${key}` } : {};
@@ -88,9 +149,7 @@ async function supabase(path, { method = 'GET', headers = {}, body } = {}) {
     headers: { apikey: key, ...auth, ...headers },
   });
   const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`Supabase ${method} ${path.split('?')[0]} failed (${res.status}): ${text.slice(0, 300)}`);
-  }
+  if (!res.ok) throw new SupabaseError(res.status, path.split('?')[0], text);
   return { data: text ? JSON.parse(text) : null, headers: res.headers };
 }
 
@@ -165,7 +224,7 @@ export const storage = {
       headers: jsonHeaders,
       body: JSON.stringify({ expiresIn: SIGNED_URL_SECONDS, paths }),
     });
-    const base = env('SUPABASE_URL').replace(/\/+$/, '') + '/storage/v1';
+    const base = supabaseUrl() + '/storage/v1';
     const urls = {};
     for (const item of data) if (item.signedURL) urls[item.path] = encodeURI(base + item.signedURL);
     return urls;
