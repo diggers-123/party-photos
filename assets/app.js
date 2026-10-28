@@ -54,7 +54,6 @@ const state = {
   tab: store.get('party.tab') === 'mine' ? 'mine' : 'favourites',
   lists: { favourites: newList(), mine: newList() },
   myFavourites: 0,
-  maxFavourites: 5,
   screen: 'loading',
 };
 store.set('party.device', state.deviceId);
@@ -203,7 +202,6 @@ $('#btn-share').addEventListener('click', async () => {
 
 function applyCounts(data) {
   if (data.myFavourites != null) state.myFavourites = data.myFavourites;
-  if (data.maxFavourites) state.maxFavourites = data.maxFavourites;
 }
 
 async function loadFirstPage(view) {
@@ -344,10 +342,10 @@ function renderTabs() {
   const mine = state.lists.mine.total;
   $('#count-favourites').textContent = fav ? fav : '';
   $('#count-mine').textContent = mine ? mine : '';
-  const left = state.maxFavourites - state.myFavourites;
+  const shared = state.myFavourites;
   $('#tab-hint').textContent = state.tab === 'favourites'
-    ? "Everyone's top picks, with who took them. Star your own best 5 in My photos."
-    : `Only you and the host can see these. Tap ☆ to share up to ${state.maxFavourites} with everyone — ${state.myFavourites} of ${state.maxFavourites} chosen${left === 0 ? ' ✨' : ''}.`;
+    ? "Everyone's top picks, with who took them. Star your own in My photos to add them here."
+    : `Only you and the host can see these. Tap ☆ on any photo to share it with everyone${shared ? ` — ${shared} shared so far ✨` : ''}.`;
 }
 
 function renderGallery() {
@@ -368,7 +366,7 @@ function renderGallery() {
   const empty = $('#gallery-empty');
   empty.hidden = list.photos.length > 0;
   empty.innerHTML = state.tab === 'favourites'
-    ? '<span class="big">★</span>No favourites yet.<br>Upload your photos, then star your best 5 to show them here.'
+    ? '<span class="big">★</span>No favourites yet.<br>Upload your photos, then star your best ones to show them here.'
     : '<span class="big">📸</span>You haven\'t added any photos yet.<br>Tap <b>Choose photos</b> above to start.';
 }
 
@@ -424,10 +422,6 @@ function syncFavourites(photo) {
 async function toggleFavourite(photo) {
   if (!photo || !photo.mine || photo.busy) return;
   const want = !photo.favourite;
-  if (want && state.myFavourites >= state.maxFavourites) {
-    toast(`You've picked ${state.maxFavourites} already — un-star one first`, 'error');
-    return;
-  }
   // update straight away so it feels instant, then confirm with the server
   photo.busy = true;
   const mine = state.lists.mine.photos.find((p) => p.id === photo.id) || photo;
@@ -644,7 +638,7 @@ function renderUploads() {
   if (active) {
     text = `Uploading ${Math.min(done + 1, jobs.length)} of ${jobs.length}…`;
   } else if (!failed.length) {
-    const nudge = state.myFavourites < state.maxFavourites ? ' Now star your favourites ☆ below.' : '';
+    const nudge = ' Now star your favourites ☆ below to share them.';
     text = `🎉 ${done} photo${done === 1 ? '' : 's'} added — thank you!${nudge}`;
     clearTimeout(uploads.hideTimer);
     uploads.hideTimer = setTimeout(() => { uploads.jobs = []; renderUploads(); }, 6000);
@@ -746,8 +740,7 @@ function updateViewerInfo() {
   $('#viewer-count').textContent = `${viewer.view === 'favourites' ? '★ Favourites · ' : ''}${viewer.index + 1} / ${total}`;
   $('#viewer-name').textContent = `📸 ${photo.mine ? `${photo.name} (you)` : photo.name}`;
   $('#viewer-time').textContent = photo.at ? timeFormat.format(new Date(photo.at)) : '';
-  const safeName = photo.name.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'guest';
-  $('#viewer-save').href = `${photo.full}&download=${encodeURIComponent(`party-${safeName}-${photo.id}.jpg`)}`;
+  if (useShareSheet) photoFile(photo).catch(() => {}); // get it ready so Save opens instantly
   const star = $('#viewer-star');
   star.hidden = !photo.mine;
   star.textContent = photo.favourite ? '★ Favourite' : '☆ Favourite';
@@ -869,6 +862,7 @@ $('#viewer-close').addEventListener('click', () => closeViewer());
 $('#viewer-prev').addEventListener('click', () => go(-1));
 $('#viewer-next').addEventListener('click', () => go(1));
 $('#viewer-star').addEventListener('click', () => toggleFavourite(viewerPhotos()[viewer.index]));
+$('#viewer-save').addEventListener('click', () => savePhoto(viewerPhotos()[viewer.index]));
 $('#viewer-delete').addEventListener('click', () => deletePhoto(viewerPhotos()[viewer.index]));
 
 document.addEventListener('keydown', (e) => {
@@ -877,6 +871,60 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowLeft') go(-1);
   else if (e.key === 'Escape') closeViewer();
 });
+
+/* ---------- saving a photo to the phone ---------- */
+
+// iPhones save downloads to the Files app, so there we open the share sheet instead,
+// where "Save Image" puts the photo in the camera roll. Android and computers download it
+// (on Android it then shows up in the Gallery).
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const useShareSheet = isIOS && typeof navigator.canShare === 'function'
+  && navigator.canShare({ files: [new File([''], 'test.jpg', { type: 'image/jpeg' })] });
+
+function fileNameFor(photo) {
+  const who = photo.name.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'guest';
+  return `party-${who}-${photo.id}.jpg`;
+}
+
+const fileCache = new Map(); // photo id → Promise<File>, for the last few photos viewed
+function photoFile(photo) {
+  if (!fileCache.has(photo.id)) {
+    const file = fetch(photo.full)
+      .then((res) => { if (!res.ok) throw new Error('download failed'); return res.blob(); })
+      .then((blob) => new File([blob], fileNameFor(photo), { type: 'image/jpeg' }));
+    file.catch(() => fileCache.delete(photo.id));
+    fileCache.set(photo.id, file);
+    if (fileCache.size > 10) fileCache.delete(fileCache.keys().next().value);
+  }
+  return fileCache.get(photo.id);
+}
+
+async function savePhoto(photo) {
+  if (!photo) return;
+  if (useShareSheet) {
+    let file;
+    try {
+      file = await photoFile(photo);
+    } catch {
+      return toast("Couldn't get the photo — check your signal and try again", 'error');
+    }
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // closed the share sheet
+      if (err.name === 'NotAllowedError') return toast('Tap Save again, then choose "Save Image"');
+      // anything else: fall back to a normal download below
+    }
+  }
+  const a = document.createElement('a');
+  a.href = `${photo.full}&download=${encodeURIComponent(fileNameFor(photo))}`;
+  a.rel = 'noopener';
+  document.body.append(a);
+  a.click();
+  a.remove();
+  toast(/Android/i.test(navigator.userAgent) ? '⬇︎ Saving — it will appear in your Gallery' : '⬇︎ Downloading the photo');
+}
 
 /* ---------- deleting your own photos ---------- */
 
