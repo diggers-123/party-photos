@@ -271,6 +271,7 @@ async function refreshNewest(view = state.tab, { quiet = true } = {}) {
 
 function switchTab(tab) {
   if (tab === state.tab) return;
+  if (selection.on) setSelecting(false);
   state.tab = tab;
   store.set('party.tab', tab);
   $('#grid').replaceChildren();
@@ -309,7 +310,10 @@ function tileFor(photo, view) {
       const by = document.createElement('span');
       by.className = 'by';
       by.textContent = photo.mine ? `${photo.name} · you` : photo.name;
-      el.append(by);
+      const check = document.createElement('span');
+      check.className = 'check';
+      check.setAttribute('aria-hidden', 'true');
+      el.append(by, check);
     } else {
       const star = document.createElement('button');
       star.type = 'button';
@@ -368,6 +372,8 @@ function renderGallery() {
   empty.innerHTML = state.tab === 'favourites'
     ? '<span class="big">★</span>No favourites yet.<br>Upload your photos, then star your best ones to show them here.'
     : '<span class="big">📸</span>You haven\'t added any photos yet.<br>Tap <b>Choose photos</b> above to start.';
+  $('#btn-select').hidden = state.tab !== 'favourites' || !list.photos.length || selection.on;
+  renderSelection();
 }
 
 $('#grid').addEventListener('click', (e) => {
@@ -376,7 +382,8 @@ $('#grid').addEventListener('click', (e) => {
   const list = currentList();
   const photo = list.photos.find((p) => String(p.id) === tile.dataset.id);
   if (!photo) return;
-  if (e.target.closest('.star')) toggleFavourite(photo);
+  if (selection.on) toggleSelected(photo);
+  else if (e.target.closest('.star')) toggleFavourite(photo);
   else if (e.target.closest('.tile-open')) openViewer(state.tab, list.photos.indexOf(photo));
 });
 
@@ -894,7 +901,7 @@ function photoFile(photo) {
       .then((blob) => new File([blob], fileNameFor(photo), { type: 'image/jpeg' }));
     file.catch(() => fileCache.delete(photo.id));
     fileCache.set(photo.id, file);
-    if (fileCache.size > 10) fileCache.delete(fileCache.keys().next().value);
+    if (fileCache.size > 40) fileCache.delete(fileCache.keys().next().value);
   }
   return fileCache.get(photo.id);
 }
@@ -917,14 +924,126 @@ async function savePhoto(photo) {
       // anything else: fall back to a normal download below
     }
   }
+  downloadPhoto(photo);
+  toast(isAndroid ? '⬇︎ Saving — it will appear in your Gallery' : '⬇︎ Downloading the photo');
+}
+
+const isAndroid = /Android/i.test(navigator.userAgent);
+
+function downloadPhoto(photo) {
   const a = document.createElement('a');
   a.href = `${photo.full}&download=${encodeURIComponent(fileNameFor(photo))}`;
   a.rel = 'noopener';
   document.body.append(a);
   a.click();
   a.remove();
-  toast(/Android/i.test(navigator.userAgent) ? '⬇︎ Saving — it will appear in your Gallery' : '⬇︎ Downloading the photo');
 }
+
+/* ---------- picking several favourites to save at once ---------- */
+
+const MAX_SAVE_AT_ONCE = 30; // keeps phones from running out of memory
+const selection = { on: false, ids: new Set(), busy: false };
+
+function setSelecting(on) {
+  selection.on = on;
+  selection.ids.clear();
+  document.body.classList.toggle('selecting', on);
+  renderGallery();
+  if (on) toast('Tap the photos you want to save');
+}
+
+function toggleSelected(photo) {
+  if (selection.busy) return;
+  if (selection.ids.has(photo.id)) {
+    selection.ids.delete(photo.id);
+  } else {
+    if (selection.ids.size >= MAX_SAVE_AT_ONCE) return toast(`You can save up to ${MAX_SAVE_AT_ONCE} at a time`, 'error');
+    selection.ids.add(photo.id);
+    if (useShareSheet) photoFile(photo).catch(() => {}); // start downloading so Save is quick
+  }
+  renderSelection();
+}
+
+function renderSelection() {
+  const bar = $('#select-bar');
+  bar.hidden = !selection.on;
+  const tiles = state.lists.favourites.tiles;
+  for (const id of selection.ids) if (!tiles.has(id)) selection.ids.delete(id); // deleted or un-starred meanwhile
+  for (const [id, el] of tiles) el.classList.toggle('selected', selection.ids.has(id));
+  if (!selection.on || selection.busy) return;
+  const n = selection.ids.size;
+  $('#select-count').textContent = n ? `${n} selected` : 'Tap photos';
+  $('#select-save').disabled = n === 0;
+  $('#select-save').textContent = n ? `⬇︎ Save ${n}` : '⬇︎ Save';
+}
+
+function selectAll() {
+  const photos = state.lists.favourites.photos.slice(0, MAX_SAVE_AT_ONCE);
+  const allChosen = photos.every((p) => selection.ids.has(p.id));
+  selection.ids.clear();
+  if (!allChosen) {
+    for (const p of photos) {
+      selection.ids.add(p.id);
+      if (useShareSheet) photoFile(p).catch(() => {});
+    }
+    if (state.lists.favourites.photos.length > MAX_SAVE_AT_ONCE) toast(`Picked the newest ${MAX_SAVE_AT_ONCE} — you can save up to ${MAX_SAVE_AT_ONCE} at a time`);
+  }
+  renderSelection();
+}
+
+async function saveSelected() {
+  const photos = state.lists.favourites.photos.filter((p) => selection.ids.has(p.id));
+  if (!photos.length || selection.busy) return;
+  const button = $('#select-save');
+
+  if (useShareSheet) {
+    // iPhone: one share sheet with every photo; "Save N Images" puts them in the camera roll
+    selection.busy = true;
+    button.disabled = true;
+    let ready = 0;
+    const pending = photos.map((p) => photoFile(p).then((file) => {
+      ready++;
+      button.textContent = `Getting ${ready}/${photos.length}…`;
+      return file;
+    }));
+    let files;
+    try {
+      files = await Promise.all(pending);
+    } catch {
+      selection.busy = false;
+      renderSelection();
+      return toast("Couldn't get all the photos — check your signal and try again", 'error');
+    }
+    selection.busy = false;
+    renderSelection();
+    try {
+      await navigator.share({ files });
+      setSelecting(false);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // closed the share sheet; keep the selection
+      // Downloading took a while, so iPhone wants a fresh tap before opening the share sheet
+      if (err.name === 'NotAllowedError') return toast('Photos ready — tap Save again');
+    }
+  }
+
+  // Android and computers: download them one after another
+  selection.busy = true;
+  button.disabled = true;
+  for (let i = 0; i < photos.length; i++) {
+    button.textContent = `Saving ${i + 1}/${photos.length}…`;
+    downloadPhoto(photos[i]);
+    if (i < photos.length - 1) await sleep(800);
+  }
+  selection.busy = false;
+  toast(isAndroid ? `⬇︎ ${photos.length} photos saving — they'll appear in your Gallery` : `⬇︎ Downloading ${photos.length} photos`);
+  setSelecting(false);
+}
+
+$('#btn-select').addEventListener('click', () => setSelecting(true));
+$('#select-cancel').addEventListener('click', () => setSelecting(false));
+$('#select-all').addEventListener('click', selectAll);
+$('#select-save').addEventListener('click', saveSelected);
 
 /* ---------- deleting your own photos ---------- */
 
