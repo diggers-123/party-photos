@@ -4,8 +4,6 @@ import { PARTY } from './_config.js';
 
 export { PARTY };
 
-export const MAX_FAVOURITES = 5; // photos each guest can share with everyone
-
 const BUCKET = 'photos';
 const SIGNED_URL_SECONDS = 6 * 60 * 60; // links to images stay valid for 6 hours
 const COLUMNS = 'id,path,uploader_name,device_id,is_favourite,created_at';

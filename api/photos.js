@@ -2,7 +2,7 @@
 //   favourites: the photos every guest has starred (everyone can see these)
 //   mine:       all photos uploaded from this phone (only this phone and the host see them)
 // Other guests' un-starred photos are never sent to guests; only the host dashboard shows them.
-import { endpoint, deviceIdFrom, photos, toClientPhotos, favouritesOf, json, fail, PARTY, MAX_FAVOURITES } from './_lib.js';
+import { endpoint, deviceIdFrom, photos, toClientPhotos, favouritesOf, json, fail, PARTY } from './_lib.js';
 
 const PAGE_SIZE = 48;
 
@@ -27,7 +27,6 @@ export const GET = endpoint(async (request) => {
     view,
     total,
     myFavourites,
-    maxFavourites: MAX_FAVOURITES,
     photos: await toClientPhotos(pageRows, deviceId),
     next: rows.length > PAGE_SIZE ? pageRows[pageRows.length - 1].id : null,
   });
