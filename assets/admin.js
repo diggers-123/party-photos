@@ -208,12 +208,66 @@ function qrSvg(text) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges" role="img" aria-label="QR code"><rect width="${size}" height="${size}" fill="#fff"/><path d="${d}" fill="#0a1721"/></svg>`;
 }
 
+// The poster's mirror ball, drawn as vector shapes so it prints crisply
+// (the CSS-gradient ball used on screen bands and glitches on printers).
+let ballCount = 0;
+function discoBallSvg() {
+  // each copy needs its own ids: the hidden preview's copy would otherwise be used when printing
+  const id = `ball${++ballCount}`;
+  let seed = 7; // fixed, so the preview and the print look identical
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const cx = 50, cy = 79, r = 47;
+  const rows = 14, cols = 16;
+  const light = [-0.45, -0.6, 0.66]; // from the top left, towards the viewer
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const dark = [30, 58, 78], bright = [236, 246, 251], coral = [255, 183, 168];
+  const rad = (d) => (d * Math.PI) / 180;
+  const point = (lat, lon) => [cx + r * Math.cos(rad(lat)) * Math.sin(rad(lon)), cy - r * Math.sin(rad(lat))];
+  let tiles = '';
+  for (let i = 0; i < rows; i++) {
+    const lat0 = -90 + (180 / rows) * i;
+    const lat1 = lat0 + 180 / rows;
+    for (let j = 0; j < cols; j++) {
+      const lon0 = -90 + (180 / cols) * j;
+      const lon1 = lon0 + 180 / cols;
+      const corners = [point(lat0, lon0), point(lat0, lon1), point(lat1, lon1), point(lat1, lon0)];
+      // how much this tile faces the light
+      const latM = rad((lat0 + lat1) / 2), lonM = rad((lon0 + lon1) / 2);
+      const n = [Math.cos(latM) * Math.sin(lonM), -Math.sin(latM), Math.cos(latM) * Math.cos(lonM)];
+      const lit = Math.max(0, n[0] * light[0] + n[1] * light[1] + n[2] * light[2]);
+      const roll = rand();
+      let rgb;
+      if (roll < 0.03) rgb = coral;
+      else if (roll < 0.09) rgb = [255, 255, 255];
+      else rgb = mix(dark, bright, Math.min(1, Math.max(0, 0.15 + 0.85 * lit + (rand() - 0.5) * 0.35)));
+      tiles += `<polygon points="${corners.map((c) => c.map((v) => v.toFixed(2)).join(',')).join(' ')}" fill="rgb(${rgb})"/>`;
+    }
+  }
+  const star = (x, y, s) => `<path d="M${x},${y - s} L${x + s * 0.18},${y - s * 0.18} L${x + s},${y} L${x + s * 0.18},${y + s * 0.18} L${x},${y + s} L${x - s * 0.18},${y + s * 0.18} L${x - s},${y} L${x - s * 0.18},${y - s * 0.18} Z" fill="#fff"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 128" role="img" aria-label="Mirror ball">
+    <defs>
+      <radialGradient id="${id}-shade" cx="0.35" cy="0.3" r="0.75">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.35"/>
+        <stop offset="0.55" stop-color="#fff" stop-opacity="0"/>
+        <stop offset="1" stop-color="#000" stop-opacity="0.45"/>
+      </radialGradient>
+      <clipPath id="${id}-clip"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
+    </defs>
+    <line x1="50" y1="0" x2="50" y2="${cy - r}" stroke="#9fb6c4" stroke-width="0.8"/>
+    <g clip-path="url(#${id}-clip)" stroke="#0c1a25" stroke-width="0.45" stroke-linejoin="round">${tiles}</g>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${id}-shade)"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#0c1a25" stroke-width="0.8"/>
+    ${star(70, 52, 9)}${star(32, 98, 4)}
+  </svg>`;
+}
+
 function buildPoster() {
   const poster = $('#poster-template').content.firstElementChild.cloneNode(true);
   const paper = document.querySelector('input[name="paper"]:checked').value;
   poster.classList.toggle('a5', paper === 'a5');
   poster.classList.toggle('ink-saver', $('#ink-saver').checked);
   for (const el of poster.querySelectorAll('[data-party]')) el.textContent = admin.party?.[el.dataset.party] || '';
+  poster.querySelector('.poster-ball').innerHTML = discoBallSvg();
   poster.querySelector('.poster-qr').innerHTML = admin.link ? qrSvg(admin.link) : '';
   poster.querySelector('.poster-host').textContent = location.host;
   return { poster, paper };

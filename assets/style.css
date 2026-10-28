@@ -724,9 +724,8 @@ body.selecting .toast { bottom: calc(86px + env(safe-area-inset-bottom)); }
 
 .poster.a5 { --s: 0.70476; } /* 148 ÷ 210 */
 
-.poster .disco { --size: calc(40mm * var(--s)); animation: none; transform: none; flex-shrink: 0; }
-.poster .disco::before { height: calc(26mm * var(--s)); }
-.poster .disco::after { animation: none; opacity: 1; transform: none; }
+.poster-ball { width: calc(46mm * var(--s)); margin-top: calc(-14mm * var(--s)); flex-shrink: 0; }
+.poster-ball svg { display: block; width: 100%; height: auto; }
 
 .poster-kicker { margin: calc(10mm * var(--s)) 0 0; font-size: calc(4mm * var(--s)); letter-spacing: 0.34em; text-transform: uppercase; opacity: 0.8; }
 .poster-title { margin: calc(4mm * var(--s)) 0 0; font-family: var(--display); font-weight: 400; font-size: calc(21mm * var(--s)); line-height: 1; text-transform: uppercase; text-shadow: 0 0 calc(3mm * var(--s)) rgba(255, 255, 255, 0.6), 0 0 calc(9mm * var(--s)) rgba(169, 216, 236, 0.6); }
@@ -742,8 +741,6 @@ body.selecting .toast { bottom: calc(86px + env(safe-area-inset-bottom)); }
 .poster.ink-saver { background: #fff; color: #0c1a25; }
 .poster.ink-saver .poster-title, .poster.ink-saver .poster-sub { text-shadow: none; }
 .poster.ink-saver .poster-qr { box-shadow: none; border: 0.4mm solid #0c1a25; }
-.poster.ink-saver .disco { box-shadow: inset -14px -16px 34px rgba(0, 0, 0, 0.45), inset 8px 8px 22px rgba(255, 255, 255, 0.28); }
-.poster.ink-saver .disco::before { background: #0c1a25; }
 
 #print-root { display: none; }
 
